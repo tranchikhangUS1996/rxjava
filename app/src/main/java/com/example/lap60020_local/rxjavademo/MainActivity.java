@@ -62,6 +62,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        myAdapter.disconnect();
+    }
+
+    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if(grantResults.length < 1 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
             finish();

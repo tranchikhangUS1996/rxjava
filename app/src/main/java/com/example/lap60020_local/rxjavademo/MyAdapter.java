@@ -22,8 +22,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 
+import io.reactivex.Flowable;
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 
@@ -31,10 +33,12 @@ class MyAdapter extends ArrayAdapter<MyType>{
 
     private ArrayList<MyType> MyLinks;
     private Context context;
+    CompositeDisposable compositeDisposable;
     public MyAdapter(Context context) {
         super(context,R.layout.list_layout);
         this.context = context;
         MyLinks = new ArrayList<>();
+        compositeDisposable = new CompositeDisposable();
     }
 
     @Override
@@ -62,14 +66,19 @@ class MyAdapter extends ArrayAdapter<MyType>{
             tv.setText(MyLinks.get(position).URL);
             imageButton = convertView.findViewById(R.id.cancel);
         }
-        //ImageButton imageButton = convertView.findViewById(R.id.cancel);
         Disposable disposable;
         if(!MyLinks.get(position).isLoaded) {
             MyLinks.get(position).isLoaded = true;
             disposable = taixuong(MyLinks.get(position).URL,progressBar);
+            compositeDisposable.add(disposable);
             if(imageButton!=null) imageButton.setOnClickListener(new MyOnClickListener(disposable,progressBar));
         };
         return convertView;
+    }
+
+    public void disconnect() {
+        compositeDisposable.dispose();
+        compositeDisposable.clear();
     }
 
     private Disposable taixuong(String url, ProgressBar progressBar) {
@@ -96,52 +105,20 @@ class MyAdapter extends ArrayAdapter<MyType>{
     }
 
     public void load(ArrayList<String> URLs) {
-        for(String s:URLs) {
+//        for(String s:URLs) {
+//            MyType myType = new MyType(s,false,null,null);
+//            MyLinks.add(myType);
+//        }
+//        this.notifyDataSetChanged();
+        Flowable.fromIterable(URLs).map(s->{
             MyType myType = new MyType(s,false,null,null);
-            MyLinks.add(myType);
-        }
-        this.notifyDataSetChanged();
-//        Flowable.fromIterable(URLs).map(s->{
-//            MyType myType = new MyType(s,false);
-//            return myType;
-//        }).subscribeOn(Schedulers.io())
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .subscribe(data->{
-//                    MyLinks.add(data);
-//                    this.notifyDataSetChanged();
-//                });
+            return myType;
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(data->{
+                    MyLinks.add(data);
+                    this.notifyDataSetChanged();
+                });
     }
 
-    private String download(String url, ProgressBar progressBar) {
-        HttpURLConnection connection;
-        OutputStream outputStream;
-        InputStream inputStream;
-        try {
-            URL downloadURL = new URL(url);
-            connection = (HttpURLConnection) downloadURL.openConnection();
-            connection.connect();
-            if(connection.getResponseCode()!=HttpURLConnection.HTTP_OK) {
-                return connection.getResponseMessage();
-            }
-            int fileLength = connection.getContentLength();
-            String[] fileNames = url.split("/");
-            String fileName = fileNames[fileNames.length-1];
-            File path = Environment.getExternalStoragePublicDirectory("Downloads");
-            File f = new File(path,fileName);
-            outputStream = new FileOutputStream(f);
-            inputStream = connection.getInputStream();
-
-            byte[] data = new byte[4096];
-            int count = 0;
-            while((count  = inputStream.read(data))!=-1) {
-                outputStream.write(data,0,count);
-            }
-
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
 }
